@@ -1,0 +1,61 @@
+name: Build iStoreOS 25.12.6 Droidspaces rootfs
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_upstream_ib:
+        description: "Force downloading the ImageBuilder from fw.koolcenter.com (skip GitHub cache release asset)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-rootfs
+  cancel-in-progress: false
+
+env:
+  IB_VERSION: "25.12.6"
+  IB_TARBALL: "istoreos-ib-armsr.tar.zst"
+  IB_DIR: "istoreos-imagebuilder-armsr-armv8.Linux-x86_64"
+  IB_SHA256: "8b8dc0706930c480b35072f178240a3de38dbf75fbc089bfb39ce1e54794feae"
+  IB_CACHE_TAG: "ib-cache-25.12.6"
+
+jobs:
+  build:
+    name: Build armsr/armv8 rootfs
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            make gcc g++ perl python3 zstd xz-utils rsync unzip gawk gettext \
+            libncurses-dev zlib1g-dev libssl-dev xsltproc file wget cpio patch \
+            bzip2 squashfs-tools
+
+      - name: Fetch official iStoreOS ImageBuilder
+        env:
+          FORCE_UPSTREAM: ${{ inputs.force_upstream_ib }}
+        run: bash scripts/fetch-ib.sh
+
+      - name: Add legacy iptables / fw3 packages
+        run: bash scripts/fetch-extra-packages.sh
+
+      - name: Build rootfs image
+        run: bash scripts/build-image.sh
+
+      - name: Post-process rootfs
+        run: bash scripts/post-process.sh
+
+      - name: Publish release and rootfs.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/publish.sh

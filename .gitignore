@@ -1,0 +1,4 @@
+build/
+*.tar.zst
+*.tar.gz
+*.tar.xz
