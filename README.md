@@ -68,6 +68,9 @@ Every release artifact is re-checked by the workflow and locally:
 
 - iptables **legacy** only: `iptables-nft`, `nft`, `firewall4` are not included.
   LuCI's firewall page still works because it talks to `fw3` via UCI.
+- `nftables-json` is pulled in only as a build dependency of `dnsmasq-full`
+  (its nftset support); the `nft` userspace binary and libnftables are stripped
+  from the final rootfs because the Android kernel can't use them.
 - Kernel modules are not shipped, so kernel-feature packages (e.g. `kmod-*`)
   can't be loaded — everything userspace still works.
 - UPnP is kept as `miniupnpd-nftables` (package name only; not started by default).

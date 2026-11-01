@@ -59,6 +59,14 @@ ls -la usr/sbin/ | grep -E 'iptables|xtables' || true
 /sbin/fw3 -q 2>/dev/null || true
 ls -la sbin/fw3 etc/config/firewall 2>/dev/null || true
 
+# 4b) nftables-json comes in only as a build dependency of dnsmasq-full (nftset support).
+# nft cannot work on Android kernels (no CONFIG_NF_TABLES), so strip the nft userspace.
+rm -f usr/sbin/nft usr/sbin/nftables
+rm -f usr/lib/libnftables.so*
+rm -rf usr/share/nftables.d
+rm -f etc/modules.d/nft-core
+echo "nft userspace stripped: $(command -v nft >/dev/null 2>&1 && echo nft-present || echo nft-absent)"
+
 # 5) container network config (wan = eth0 DHCP via Droidspaces NAT, lan = br-lan for VirtualAP / gateway mode)
 cat > etc/config/network <<'NET'
 config interface 'loopback'
@@ -94,7 +102,7 @@ NET
 
 # 6) dhcp: lan range follows the new lan subnet
 if [ -f etc/config/dhcp ]; then
-  sed -i "s/option start '100'/option start '10'/; s/option limit '150'/option limit '200'/" etc/config/dhcp || true
+  sed -i -E 's/(option[[:space:]]+start)[[:space:]]+100/\1 10/; s/(option[[:space:]]+limit)[[:space:]]+150/\1 200/' etc/config/dhcp || true
 fi
 
 # 7) forwarding for gateway mode
