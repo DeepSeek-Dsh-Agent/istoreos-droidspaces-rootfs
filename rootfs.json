@@ -1,0 +1,15 @@
+[
+  {
+    "author": "DeepSeek-Dsh-Agent",
+    "name": "iStoreOS 25.12.6 - Minimal (iptables-legacy)",
+    "distro": "iStoreOS",
+    "description": "iStoreOS 25.12.6 (OpenWrt-based) aarch64 rootfs for Android/Droidspaces containers, built from the official iStoreOS ImageBuilder: nftables/firewall4 stripped out in favor of fw3 + iptables-legacy (Android GKI kernels have no CONFIG_NF_TABLES), kernel modules removed, Android AID groups added, wan=eth0 DHCP / lan=br-lan 192.168.100.1/24.",
+    "architecture": "aarch64",
+    "file": "iStoreOS-25.12.6-Minimal",
+    "download_url": "https://github.com/DeepSeek-Dsh-Agent/istoreos-droidspaces-rootfs/releases/download/v20261101-120350/iStoreOS-25.12.6-Droidspaces-rootfs-aarch64-20261101.tar.xz",
+    "sha256": "6a470366154da2042d85374464fcffb1509ab5faf0f9b12a0752bdc8edebf9ad",
+    "size_bytes": 127299996,
+    "version": "v20261101-120350",
+    "build_date": "20261101"
+  }
+]
