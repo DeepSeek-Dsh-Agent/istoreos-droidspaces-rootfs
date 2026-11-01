@@ -5,11 +5,11 @@
     "distro": "iStoreOS",
     "description": "iStoreOS 25.12.6 (OpenWrt-based) aarch64 rootfs for Android/Droidspaces containers, built from the official iStoreOS ImageBuilder: nftables/firewall4 stripped out in favor of fw3 + iptables-legacy (Android GKI kernels have no CONFIG_NF_TABLES), kernel modules removed, Android AID groups added, wan=eth0 DHCP / lan=br-lan 192.168.100.1/24.",
     "architecture": "aarch64",
-    "file": "iStoreOS-25.12.6-Minimal",
-    "download_url": "https://github.com/DeepSeek-Dsh-Agent/istoreos-droidspaces-rootfs/releases/download/v20261101-123514/iStoreOS-25.12.6-Droidspaces-rootfs-aarch64-20261101.tar.xz",
-    "sha256": "facf44e13476a6d76d9770f5269ae7a897e833ddaecd0ebe8606bdbe3d36b22b",
-    "size_bytes": 127185116,
-    "version": "v20261101-123514",
+    "file": "iStoreOS-25.12.6-Minimal-b5",
+    "download_url": "https://github.com/DeepSeek-Dsh-Agent/istoreos-droidspaces-rootfs/releases/download/v20261101-130356-b5/iStoreOS-25.12.6-Droidspaces-rootfs-aarch64-20261101-b5.tar.xz",
+    "sha256": "263fc9bf04d797fbf3dcee73dcc1183bcebfb70d0a5dfa1aedae9b2a15c19047",
+    "size_bytes": 127184596,
+    "version": "v20261101-130356-b5",
     "build_date": "20261101"
   }
 ]
