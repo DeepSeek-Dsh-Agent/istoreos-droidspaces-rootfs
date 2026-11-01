@@ -111,6 +111,36 @@ config interface 'lan'
 	option ip6assign '64'
 NET
 
+# 5b) iStoreOS' first-boot NIC rescan (/usr/libexec/rescan_nic.sh, called from
+# 09_istoreos) rewrites /etc/config/network from board.json: a container with a
+# single eth0 gets lan=br-lan(eth0) dhcp and our wan/wan6 are deleted. Keep the
+# packaged layout (wan=eth0 DHCP, lan=br-lan/eth1 for Droidspaces gateway mode).
+cat > usr/libexec/rescan_nic.sh <<'RESCAN'
+#!/bin/sh
+# Disabled by istoreos-droidspaces-rootfs: keep the packaged network config.
+exit 0
+RESCAN
+chmod 755 usr/libexec/rescan_nic.sh
+
+# 5c) Droidspaces NAT subnet may reach router services (LuCI/SSH/ping).
+cat >> etc/config/firewall <<'FWRULE'
+
+config rule
+	option name		Allow-Droidspaces-NAT
+	option src		wan
+	option src_ip		172.28.0.0/16
+	option proto		tcp udp
+	option target		ACCEPT
+
+config rule
+	option name		Allow-Droidspaces-Ping
+	option src		wan
+	option src_ip		172.28.0.0/16
+	option proto		icmp
+	option icmp_type	echo-request
+	option target		ACCEPT
+FWRULE
+
 # 6) dhcp: lan range follows the new lan subnet
 if [ -f etc/config/dhcp ]; then
   sed -i -E 's/(option[[:space:]]+start)[[:space:]]+100/\1 10/; s/(option[[:space:]]+limit)[[:space:]]+150/\1 200/' etc/config/dhcp || true
@@ -128,6 +158,79 @@ Adapted for Android/Droidspaces containers: fw3 + iptables-legacy (no nf_tables 
 Repository: https://github.com/DeepSeek-Dsh-Agent/istoreos-droidspaces-rootfs
 MARK
 
+# 8b) Network bootstrap / DHCP safety net.
+# Observed in Droidspaces: netifd runs but never configures eth0 (the iStoreOS
+# first-boot rescan had rewritten /etc/config/network); the container then boots
+# with no IPv4 at all. This rcS script runs after the network service and makes
+# sure eth0 ends up with an address:
+#   netifd DHCP -> direct udhcpc -> static NAT IP from Droidspaces -> 172.28.1.1
+cat > usr/sbin/droidspaces-net <<'NETBOOT'
+#!/bin/sh
+# Make sure eth0 has an IPv4 address inside a Droidspaces container.
+GW=172.28.0.1
+LOG=/tmp/droidspaces-net.log
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >>"$LOG"; }
+
+has_ip() {
+	ip -4 addr show 2>/dev/null | grep -q 'inet 172\.28\.'
+}
+
+ensuredns() {
+	mkdir -p /tmp/resolv.conf.d
+	printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > /tmp/resolv.conf.d/resolv.conf.auto
+	ln -sf /tmp/resolv.conf.d/resolv.conf.auto /tmp/resolv.conf
+}
+
+allow_fw() {
+	iptables -C INPUT -i eth0 -p tcp --dport 80 -j ACCEPT 2>/dev/null ||
+		iptables -I INPUT -i eth0 -p tcp --dport 80 -j ACCEPT 2>/dev/null
+	iptables -C INPUT -i eth0 -p tcp --dport 22 -j ACCEPT 2>/dev/null ||
+		iptables -I INPUT -i eth0 -p tcp --dport 22 -j ACCEPT 2>/dev/null
+}
+
+log "start; interfaces: $(ip -4 -o addr show 2>/dev/null | tr '\n' '|')"
+i=0
+while [ $i -lt 12 ]; do
+	if has_ip; then
+		log "netifd/DHCP already configured an address"
+		allow_fw; ensuredns; exit 0
+	fi
+	i=$((i + 1)); sleep 1
+done
+
+ip link set eth0 up 2>/dev/null
+log "no IPv4 after 12s, trying direct udhcpc on eth0"
+udhcpc -i eth0 -f -t 4 -T 2 -s /usr/share/udhcpc/default.script \
+	-p /tmp/udhcpc-eth0.pid >>"$LOG" 2>&1
+sleep 1
+if has_ip; then
+	log "direct udhcpc got a lease"
+	allow_fw; ensuredns; exit 0
+fi
+
+# Droidspaces persists the resolved NAT IP in /run/droidspaces/container.config
+IP=$(awk -F= '/^static_nat_ip=/{print $2; exit}' /run/droidspaces/container.config 2>/dev/null)
+[ -z "$IP" ] && IP=172.28.1.1
+log "DHCP unavailable, applying static $IP/16 via $GW"
+ip addr add "$IP/16" dev eth0 2>/dev/null
+ip route add default via "$GW" dev eth0 2>/dev/null
+allow_fw
+ensuredns
+log "done; eth0: $(ip -4 -o addr show dev eth0 2>/dev/null)"
+NETBOOT
+chmod 755 usr/sbin/droidspaces-net
+
+cat > etc/init.d/droidspaces-net <<'NETINIT'
+#!/bin/sh /etc/rc.common
+START=99
+start() {
+	( /usr/sbin/droidspaces-net >/tmp/droidspaces-net.log 2>&1 ) &
+}
+NETINIT
+chmod 755 etc/init.d/droidspaces-net
+ln -sf ../init.d/droidspaces-net etc/rc.d/S99droidspaces-net
+
 # 9) drop device nodes, keep the (empty) directories
 find dev \( -type b -o -type c \) -delete 2>/dev/null || true
 
@@ -142,6 +245,9 @@ grep -E '^aid_inet' etc/group
 [ -d tmp/run ] || { echo "ERROR: /tmp/run missing"; exit 1; }
 [ ! -e usr/sbin/nft ] || { echo "ERROR: nft userspace still present"; exit 1; }
 [ ! -e sbin/fw4 ] || { echo "ERROR: firewall4 still present"; exit 1; }
+[ -x usr/sbin/droidspaces-net ] || { echo "ERROR: droidspaces-net helper missing"; exit 1; }
+[ -x etc/init.d/droidspaces-net ] || { echo "ERROR: droidspaces-net init missing"; exit 1; }
+[ -L etc/rc.d/S99droidspaces-net ] || { echo "ERROR: droidspaces-net not enabled"; exit 1; }
 echo "/run: $(ls -ld run | awk '{print $1}')  tmp/run: $(ls -ld tmp/run | awk '{print $1}')"
 
 # 10) repack

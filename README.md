@@ -60,6 +60,21 @@ it as a custom rootfs.
   `rootfs.json` `version` tag and `file` field, so the Droidspaces download name
   stays unique too. The release tag is `v<YYYYMMDD>-<HHMMSS>-b<batch>`.
 
+## Network bootstrap (containers)
+
+- `wan` = `eth0` DHCP (Droidspaces NAT), `lan` = `br-lan` with `eth1`
+  192.168.100.1/24 + DHCP server for Droidspaces gateway mode.
+- iStoreOS' first-boot NIC rescan (`/usr/libexec/rescan_nic.sh`, run from
+  `09_istoreos`) is disabled: in a single-NIC container it rewrote
+  `/etc/config/network` to `lan=br-lan(eth0) dhcp`, dropping `wan`, and netifd
+  then booted the container without any IPv4 address.
+- `S99droidspaces-net` runs after the network service and guarantees eth0 gets
+  an address, in this order: netifd DHCP -> direct `udhcpc` -> the static NAT IP
+  persisted by Droidspaces in `/run/droidspaces/container.config`
+  (`static_nat_ip=`) -> `172.28.1.1/16`. It also writes DNS and opens
+  tcp/22+80 on eth0, and logs to `/tmp/droidspaces-net.log`.
+- Firewall allows `172.28.0.0/16` (Droidspaces NAT) to reach LuCI/SSH/ping.
+
 ## Verification (what is checked after build)
 
 Every release artifact is re-checked by the workflow and locally:
