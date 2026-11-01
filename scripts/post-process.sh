@@ -145,8 +145,19 @@ grep -E '^aid_inet' etc/group
 echo "/run: $(ls -ld run | awk '{print $1}')  tmp/run: $(ls -ld tmp/run | awk '{print $1}')"
 
 # 10) repack
+# Name: iStoreOS-<ver>-Droidspaces-rootfs-aarch64-<YYYYMMDD>-b<batch>.tar.xz
+# The batch (= GitHub run number, or HHMM locally) keeps rebuilds of the same
+# day distinguishable, instead of several identical "<date>.tar.xz" files.
 cd "$WORK"
-OUTFILE="$FINAL_DIR/iStoreOS-$IB_VERSION-Droidspaces-rootfs-aarch64-$(date -u +%Y%m%d).tar.xz"
+BDATE=$(date -u +%Y%m%d)
+BATCH=${GITHUB_RUN_NUMBER:-$(date -u +%H%M)}
+BASENAME="iStoreOS-$IB_VERSION-Droidspaces-rootfs-aarch64-$BDATE-b$BATCH"
+OUTFILE="$FINAL_DIR/$BASENAME.tar.xz"
+echo "$BASENAME" > "$FINAL_DIR/asset_name.txt"
+if [ -n "${GITHUB_ENV:-}" ]; then
+  echo "ASSET_BASENAME=$BASENAME" >> "$GITHUB_ENV"
+  echo "BUILD_BATCH=$BATCH" >> "$GITHUB_ENV"
+fi
 echo "packing $OUTFILE ..."
 # CI runners unpack as uid 1001; force root:root in the archive headers so the
 # rootfs matches every other Droidspaces rootfs tarball (0/0).

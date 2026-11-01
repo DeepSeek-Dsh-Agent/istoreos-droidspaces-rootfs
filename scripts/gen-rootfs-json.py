@@ -11,6 +11,7 @@ def main() -> None:
     ap.add_argument("--size", required=True, type=int)
     ap.add_argument("--version", required=True)
     ap.add_argument("--build-date", required=True)
+    ap.add_argument("--file", default="iStoreOS-25.12.6-Minimal")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -25,7 +26,7 @@ def main() -> None:
             "removed, Android AID groups added, wan=eth0 DHCP / lan=br-lan 192.168.100.1/24."
         ),
         "architecture": "aarch64",
-        "file": "iStoreOS-25.12.6-Minimal",
+        "file": args.file,
         "download_url": args.download_url,
         "sha256": args.sha256,
         "size_bytes": args.size,

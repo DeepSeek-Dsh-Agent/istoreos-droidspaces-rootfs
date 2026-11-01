@@ -52,6 +52,13 @@ it as a custom rootfs.
 - Workflow: [`.github/workflows/build.yml`](.github/workflows/build.yml),
   manual dispatch only (`workflow_dispatch`). It builds the rootfs, post-processes
   it, creates the release, uploads the asset and commits `rootfs.json`.
+- Release assets are named
+  `iStoreOS-<ver>-Droidspaces-rootfs-aarch64-<YYYYMMDD>-b<batch>.tar.xz`, where
+  `<batch>` is the GitHub Actions run number (fallback: `HHMM` for local runs).
+  Same-day rebuilds therefore get a distinct `-bN` suffix instead of colliding
+  with an earlier `<date>.tar.xz`; the batch is also mirrored in the
+  `rootfs.json` `version` tag and `file` field, so the Droidspaces download name
+  stays unique too. The release tag is `v<YYYYMMDD>-<HHMMSS>-b<batch>`.
 
 ## Verification (what is checked after build)
 
@@ -62,6 +69,8 @@ Every release artifact is re-checked by the workflow and locally:
   multi-call binary, and no `firewall4`/`nft` binaries remain
 - `/etc/group` contains the Android AID groups
 - `/etc/init.d/boot` has no debugfs mount; `/lib/modules` is absent
+- `/run` is a real directory (not a symlink; Droidspaces mounts a tmpfs on it
+  before init runs) and `/tmp/run` exists
 - `rootfs.json` is valid JSON and its `sha256`/`size_bytes` match the release asset
 
 ## Notes / limitations

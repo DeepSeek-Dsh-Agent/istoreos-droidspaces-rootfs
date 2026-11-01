@@ -8,8 +8,12 @@ ASSET_SRC=$(ls "$WS"/build/out/*.tar.xz | head -1)
 
 TS=$(date -u +%Y%m%d-%H%M%S)
 BDATE=$(date -u +%Y%m%d)
-TAG="v$TS"
-ASSET="iStoreOS-$IB_VERSION-Droidspaces-rootfs-aarch64-$BDATE.tar.xz"
+# post-process exports BUILD_BATCH (GitHub run number) and ASSET_BASENAME;
+# fall back to the clock for local runs.
+BUILD_BATCH="${BUILD_BATCH:-$(date -u +%H%M)}"
+ASSET_BASENAME="${ASSET_BASENAME:-$(basename "$ASSET_SRC" .tar.xz)}"
+TAG="v$TS-b$BUILD_BATCH"
+ASSET="$ASSET_BASENAME.tar.xz"
 RELDIR="$WS/build/release"
 mkdir -p "$RELDIR"
 cp "$ASSET_SRC" "$RELDIR/$ASSET"
@@ -42,7 +46,7 @@ if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
   gh release upload "$TAG" "$RELDIR/$ASSET" --repo "$REPO" --clobber
 else
   gh release create "$TAG" "$RELDIR/$ASSET" --repo "$REPO" \
-    --title "iStoreOS $IB_VERSION - Minimal (iptables-legacy) aarch64 rootfs ($BDATE)" \
+    --title "iStoreOS $IB_VERSION - Minimal (iptables-legacy) aarch64 rootfs ($BDATE-b$BUILD_BATCH)" \
     --notes-file "$RELDIR/notes.md"
 fi
 
@@ -55,6 +59,7 @@ python3 "$WS/scripts/gen-rootfs-json.py" \
   --size "$SIZE" \
   --version "$TAG" \
   --build-date "$BDATE" \
+  --file "iStoreOS-$IB_VERSION-Minimal-b$BUILD_BATCH" \
   --out "$WS/rootfs.json"
 python3 -c "import json; json.load(open('$WS/rootfs.json')); print('rootfs.json valid JSON')"
 
