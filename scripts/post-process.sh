@@ -67,6 +67,17 @@ rm -rf usr/share/nftables.d
 rm -f etc/modules.d/nft-core
 echo "nft userspace stripped: $(command -v nft >/dev/null 2>&1 && echo nft-present || echo nft-absent)"
 
+# 4c) Droidspaces mkdir()s proc/sys/run/tmp and mounts a tmpfs on each before
+# any init script runs. iStoreOS/OpenWrt images ship /run as a symlink to
+# /tmp/run, and /tmp/run only appears when /etc/init.d/boot runs -- too late:
+# mount("tmpfs", "run") resolves the symlink to a missing target and fails with
+# ENOENT ("Failed to mount tmpfs at /run: No such file or directory").
+# The official Droidspaces OpenWrt rootfs ships no /run entry at all. Do the
+# same: a real, empty directory, plus /tmp/run for anything that expects it.
+if [ -L run ]; then rm -f run; fi
+mkdir -p -m 0755 run tmp/run
+test -d run && test ! -L run && echo "/run is a real directory OK"
+
 # 5) container network config (wan = eth0 DHCP via Droidspaces NAT, lan = br-lan for VirtualAP / gateway mode)
 cat > etc/config/network <<'NET'
 config interface 'loopback'
@@ -125,6 +136,13 @@ ls -la sbin/init usr/bin/apk etc/config/firewall etc/config/network etc/config/d
 ls sbin/fw3 2>/dev/null; ls -la usr/sbin/iptables usr/sbin/ip6tables 2>/dev/null || true
 test ! -d lib/modules && echo "lib/modules absent OK"
 grep -E '^aid_inet' etc/group
+
+# hard checks: these break container boot / firewall on Android, never ship them
+[ -d run ] && [ ! -L run ] || { echo "ERROR: /run must be a real directory (Droidspaces mounts a tmpfs on it)"; exit 1; }
+[ -d tmp/run ] || { echo "ERROR: /tmp/run missing"; exit 1; }
+[ ! -e usr/sbin/nft ] || { echo "ERROR: nft userspace still present"; exit 1; }
+[ ! -e sbin/fw4 ] || { echo "ERROR: firewall4 still present"; exit 1; }
+echo "/run: $(ls -ld run | awk '{print $1}')  tmp/run: $(ls -ld tmp/run | awk '{print $1}')"
 
 # 10) repack
 cd "$WORK"
