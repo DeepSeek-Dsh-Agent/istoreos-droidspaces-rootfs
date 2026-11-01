@@ -148,6 +148,8 @@ echo "/run: $(ls -ld run | awk '{print $1}')  tmp/run: $(ls -ld tmp/run | awk '{
 cd "$WORK"
 OUTFILE="$FINAL_DIR/iStoreOS-$IB_VERSION-Droidspaces-rootfs-aarch64-$(date -u +%Y%m%d).tar.xz"
 echo "packing $OUTFILE ..."
-XZ_OPT="-T0 -6" tar -cJf "$OUTFILE" --numeric-owner -C "$WORK" .
+# CI runners unpack as uid 1001; force root:root in the archive headers so the
+# rootfs matches every other Droidspaces rootfs tarball (0/0).
+XZ_OPT="-T0 -6" tar -cJf "$OUTFILE" --numeric-owner --owner=0 --group=0 -C "$WORK" .
 ls -la "$OUTFILE"
 sha256sum "$OUTFILE"
